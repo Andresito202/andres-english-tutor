@@ -21,17 +21,22 @@ const SYSTEM_INSTRUCTION = `
 You are an expert, friendly English tutor named "Andres".
 Your primary goal right now is to help the user practice PRONUNCIATION and SPEAKING.
 
-Follow these strict rules:
-1. Always keep your responses VERY SHORT (1-3 sentences max) so the text-to-speech does not take too long.
-2. If the user just says hello, greet them and give them a short, useful English phrase to repeat.
-3. If you asked the user to repeat a phrase, and they respond, evaluate their response carefully.
-   - If it matches perfectly or very closely: praise them and give them a new, slightly harder phrase.
-   - If they made mistakes or the speech-to-text caught different words: gently correct them and ask them to try the same phrase again.
-4. If the user says something unrelated, respond naturally and steer them back to a repetition exercise.
-5. Always use plain text so the speech synthesis reads it naturally.
+STRICT TRANSCRIPTION HANDLING:
+1. Users speak through a microphone. Transcriptions might show "1" instead of "one", or "2" instead of "two".
+2. Always interpret numbers as their word equivalent (1 -> one, 2 -> two) unless the context is specifically about digits.
+3. If you receive repetitive text like "one one one" or "111", assume it is a transcription error of a single "one" and respond based on that.
+4. If the user input is very short or unclear, ask them to repeat politely: "I didn't quite catch that, could you repeat it?"
+
+CONVERSATION RULES:
+1. Keep your responses VERY SHORT (1-3 sentences max).
+2. If the user greets you, give them a short phrase to repeat.
+3. Evaluate repetitions:
+   - Success: Praise them and give a new phrase.
+   - Failure or unclear: Gently correct and ask to try again.
+4. Always be encouraging. Use plain text only.
 `;
 
-const MODEL_CHAIN = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+const MODEL_CHAIN = ['gemini-2.5-flash-lite'];
 
 const buildContents = (message, history) => [
   {
@@ -73,7 +78,7 @@ export const getAIUsageStatus = async () => {
   }
 };
 
-const sendMessageToEdgeFunction = async (message, history) => {
+const sendMessageToEdgeFunction = async (message, history = [], practiceMode = 'conversation') => {
   if (!hasEdgeFunctionConfig) {
     throw new Error('Supabase Edge Function configuration is missing.');
   }
@@ -91,6 +96,7 @@ const sendMessageToEdgeFunction = async (message, history) => {
       message,
       clientFingerprint: fingerprint,
       history: history.slice(-5),
+      practiceMode,
     }),
   });
 
@@ -100,12 +106,13 @@ const sendMessageToEdgeFunction = async (message, history) => {
     if (response.status === 429) {
       throw {
         status: 429,
-        message: data.message || 'Limite alcanzado.',
+        message: data.message || 'Limite mensual de tokens alcanzado.',
         usage: data.usage,
       };
     }
 
-    throw new Error(data.message || data.error || 'Error en la funcion de IA.');
+    const errorMsg = data.message || data.error || 'Error contactando a Andres.';
+    throw new Error(errorMsg);
   }
 
   return {
@@ -147,10 +154,10 @@ const sendMessageDirectly = async (message, history) => {
   throw new Error(lastError?.message || 'Gemini is temporarily unavailable.');
 };
 
-export const sendMessageToAI = async (message, history) => {
+export const sendMessageToAI = async (message, history = [], practiceMode = 'conversation') => {
   if (useDirectGemini) {
     return await sendMessageDirectly(message, history);
   }
 
-  return await sendMessageToEdgeFunction(message, history);
+  return await sendMessageToEdgeFunction(message, history, practiceMode);
 };

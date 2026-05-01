@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 export function useLearningProgress() {
   const [progress, setProgress] = useState(() => {
     try {
-      const saved = localStorage.getItem('learna_progress');
+      const saved = localStorage.getItem('andres_progress');
       if (saved) return JSON.parse(saved);
     } catch (e) {
       console.error("Error reading progress from localStorage", e);
@@ -16,7 +16,7 @@ export function useLearningProgress() {
   });
 
   useEffect(() => {
-    localStorage.setItem('learna_progress', JSON.stringify(progress));
+    localStorage.setItem('andres_progress', JSON.stringify(progress));
   }, [progress]);
 
   const markModuleCompleted = (moduleId) => {

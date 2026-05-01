@@ -15,3 +15,9 @@ dist/
 
 # Supabase local CLI state
 supabase/.temp/
+
+# Local network helper
+get-ip.js
+
+# Deno local validation lockfile
+deno.lock

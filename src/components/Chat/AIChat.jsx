@@ -3,6 +3,8 @@ import * as Icons from 'lucide-react';
 import { sendMessageToAI, getAIUsageStatus } from '../../services/aiService';
 import AIAvatar from './AIAvatar';
 import AIUsageBar from '../AIUsage/AIUsageBar';
+import PracticeModeSelector from './PracticeModeSelector';
+import { normalizeSpeechTranscript } from '../../utils/speechUtils';
 
 function loadVoices() {
   return new Promise((resolve) => {
@@ -76,6 +78,13 @@ const AIChat = () => {
   const [audioError, setAudioError] = useState('');
   const [isDiagOpen, setIsDiagOpen] = useState(false);
   const [aiUsage, setAiUsage] = useState(null);
+  const [practiceMode, setPracticeMode] = useState(() => {
+    return localStorage.getItem('andres_practice_mode') || 'daily_conversation';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('andres_practice_mode', practiceMode);
+  }, [practiceMode]);
 
   const isAiUnavailable = aiUsage?.isLimitReached || aiUsage?.isAiEnabled === false;
 
@@ -108,14 +117,71 @@ const AIChat = () => {
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
       recognition.current = new SpeechRecognition();
       recognition.current.continuous = false;
-      recognition.current.interimResults = false;
+      recognition.current.interimResults = true;
       recognition.current.lang = 'en-US';
+      recognition.current.maxAlternatives = 1;
+
+      let finalTranscript = '';
+      let isProcessing = false;
+
+      // In DEV, run tests once
+      if (import.meta.env.DEV) {
+        import('../../utils/speechUtils').then(m => m.runSpeechTests());
+      }
 
       recognition.current.onresult = (event) => {
-        const transcript = event.results[0][0].transcript;
-        setInput(transcript);
-        setIsListening(false);
-        handleSendVoice(transcript);
+        let interimTranscript = '';
+        let avgConfidence = 0;
+        let finalResultsCount = 0;
+
+        for (let i = event.resultIndex; i < event.results.length; ++i) {
+          const result = event.results[i];
+          if (result.isFinal) {
+            finalTranscript += result[0].transcript;
+            avgConfidence += result[0].confidence;
+            finalResultsCount++;
+          } else {
+            interimTranscript += result[0].transcript;
+          }
+        }
+
+        const currentText = finalTranscript || interimTranscript;
+        if (currentText) {
+          setInput(currentText);
+        }
+
+        if (finalTranscript && !isProcessing) {
+          isProcessing = true;
+
+          const confidence = finalResultsCount > 0 ? avgConfidence / finalResultsCount : 0;
+
+          if (import.meta.env.DEV) {
+            console.log('[Speech] Raw Result:', event.results);
+            console.log('[Speech] Final Transcript Built:', finalTranscript);
+            console.log('[Speech] Confidence:', confidence);
+          }
+
+          // Confidence validation (0.55 threshold)
+          // We only block if confidence is explicitly low (> 0)
+          if (confidence > 0 && confidence < 0.55) {
+            if (import.meta.env.DEV) console.warn('[Speech] Confidence too low, asking to repeat.');
+            setAudioError('I didn\'t catch that clearly. Please try again.');
+            recognition.current.stop();
+            setTimeout(() => { isProcessing = false; }, 1000);
+            return;
+          }
+
+          const normalized = normalizeSpeechTranscript(finalTranscript);
+          if (import.meta.env.DEV) console.log('[Speech] Normalized Text:', normalized);
+
+          // Stop and send
+          recognition.current.stop();
+          handleSendVoice(normalized);
+
+          // Reset
+          finalTranscript = '';
+          setTimeout(() => { isProcessing = false; }, 1000);
+        }
       };
 
       recognition.current.onerror = (event) => {
@@ -138,8 +204,8 @@ const AIChat = () => {
         console.warn('Speech synthesis cleanup failed', error);
       }
     };
-  // SpeechRecognition is registered once to avoid resetting browser audio state on every render.
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // SpeechRecognition is registered once to avoid resetting browser audio state on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -316,6 +382,7 @@ const AIChat = () => {
   };
 
   const handleSendVoice = async (text) => {
+    console.log('[Chat] textToSend to IA:', text);
     if (!text.trim()) return;
     if (isAiUnavailable) {
       setAudioError(
@@ -341,7 +408,7 @@ const AIChat = () => {
     setIsTyping(true);
 
     try {
-      const response = await sendMessageToAI(userMessage.text, messages);
+      const response = await sendMessageToAI(userMessage.text, messages, practiceMode);
       setMessages((prev) => [...prev, { id: Date.now() + 1, sender: 'ai', text: response.text }]);
 
       if (response.usage) {
@@ -409,46 +476,26 @@ const AIChat = () => {
     <>
       {audioError && <div className="error-toast">{audioError}</div>}
 
-      <div className="chat-shell">
-        <div className={`diag-panel ${isDiagOpen ? 'open' : 'closed'}`}>
-          <div className="diag-header">
-            <button type="button" className="diag-toggle" onClick={() => setIsDiagOpen(!isDiagOpen)}>
-              <Icons.Activity size={14} />
-              <span>Panel Diagnostico</span>
-              <span className="diag-arrow">{isDiagOpen ? 'v' : '>'}</span>
-            </button>
-            <div className="diag-actions">
-              <button type="button" onClick={handleTestAudio} className="btn-diag-action audio">Probar Audio</button>
-              <button type="button" onClick={handleTestBeep} className="btn-diag-action beep">Probar Beep</button>
+      <div className="chat-shell avant-glass">
+        <header className="chat-header">
+          <div className="chat-header-top">
+            <div className="chat-brand-group">
+              <AIAvatar isSpeaking={isSpeaking} />
+              <div className="brand-title">
+                <Icons.ShieldCheck size={18} color="var(--accent-primary)" />
+                <h1>Andres</h1>
+              </div>
             </div>
+
+            <AIUsageBar usage={aiUsage} />
           </div>
 
-          {isDiagOpen && (
-            <div className="diag-grid">
-              <div>voicesCount: {diag.voicesCount}</div>
-              <div>isSpeaking: {String(isSpeaking)}</div>
-              <div>micListening: {String(isListening)}</div>
-              <div>selectedVoiceName: {diag.selectedVoiceName}</div>
-              <div className={diag.lastAudioEvent === 'onerror' || diag.lastAudioEvent === 'watchdog-timeout' ? 'text-error' : 'text-success'}>
-                lastAudioEvent: {diag.lastAudioEvent}
-              </div>
-              <div className="text-error">lastAudioError: {diag.lastAudioError}</div>
-              <div className="text-warning">lastMicError: {diag.lastMicError}</div>
-              <div>sysSpeaking: {String(diag.sysSpeaking)}</div>
-            </div>
-          )}
-        </div>
-
-        <header className="chat-header">
-          <AIUsageBar usage={aiUsage} />
-          <AIAvatar isSpeaking={isSpeaking} />
-          <div className="brand-title">
-            <Icons.ShieldCheck size={18} color="var(--accent-primary)" />
-            <h1>Andres</h1>
+          <div className="chat-header-modes">
+            <PracticeModeSelector currentMode={practiceMode} onModeChange={setPracticeMode} />
           </div>
         </header>
 
-        <div className="avant-glass messages-container">
+        <div className="messages-container">
           {messages.map((msg) => (
             <div key={msg.id} className={`message-wrapper ${msg.sender === 'user' ? 'user' : 'ai'}`}>
               <div className="message-bubble">
@@ -509,6 +556,25 @@ const AIChat = () => {
               <Icons.Send size={18} />
             </button>
           </form>
+        </div>
+
+        {/* Compact Diagnostic Panel at Bottom */}
+        <div className="diag-footer">
+          <button type="button" className="diag-toggle-mini" onClick={() => setIsDiagOpen(!isDiagOpen)}>
+            <Icons.Activity size={12} />
+            <span>{isDiagOpen ? 'Ocultar Diagnostico' : 'Ver Diagnostico'}</span>
+          </button>
+
+          {isDiagOpen && (
+            <div className="diag-grid-mini">
+              <span>Voices: {diag.voicesCount}</span>
+              <span>Speaking: {String(isSpeaking)}</span>
+              <span>Mic: {String(isListening)}</span>
+              <span>Status: {diag.lastAudioEvent}</span>
+              <button type="button" onClick={handleTestAudio} className="btn-mini-test">Audio</button>
+              <button type="button" onClick={handleTestBeep} className="btn-mini-test">Beep</button>
+            </div>
+          )}
         </div>
       </div>
     </>

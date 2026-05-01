@@ -38,7 +38,7 @@ serve(async (req) => {
       monthlyLimit,
       monthlyUsed: totalUsedThisMonth,
       monthlyRemaining: Math.max(0, monthlyLimit - totalUsedThisMonth),
-      percentageUsed: Math.round((totalUsedThisMonth / monthlyLimit) * 100),
+      percentageUsed: (totalUsedThisMonth / monthlyLimit) * 100,
       isAiEnabled,
       isLimitReached: !isAiEnabled || totalUsedThisMonth >= monthlyLimit,
       resetDate: new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString().slice(0, 10),
