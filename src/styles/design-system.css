@@ -1039,6 +1039,72 @@ body {
   z-index: 1;
 }
 
+/* AI Usage Bar Styles */
+.ai-usage-bar-container {
+  padding: 1rem;
+  border-radius: 20px;
+  margin-bottom: 1.5rem;
+  font-family: var(--font-friendly);
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  border: 1px solid rgba(0,0,0,0.05);
+}
+
+.usage-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.85rem;
+}
+
+.usage-title {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-weight: 800;
+  color: var(--text-dark);
+}
+
+.usage-numbers {
+  color: var(--text-muted);
+}
+
+.progress-track {
+  width: 100%;
+  height: 8px;
+  background: var(--accent-soft);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  transition: width 0.5s ease;
+  border-radius: 10px;
+}
+
+.usage-footer {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-dim);
+}
+
+.limit-alert {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: #fef2f2;
+  color: var(--error);
+  border-radius: 10px;
+  font-size: 0.75rem;
+  font-weight: 800;
+  border: 1px solid #fee2e2;
+}
+
 .avatar-container.is-speaking .sound-waves::before,
 .avatar-container.is-speaking .sound-waves::after {
   content: '';

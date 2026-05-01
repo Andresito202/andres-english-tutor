@@ -12,3 +12,6 @@ dist/
 # ide
 .vscode/
 .DS_Store
+
+# Supabase local CLI state
+supabase/.temp/

@@ -1,81 +1,148 @@
 # Andres English Tutor
 
-Aplicacion web educativa para practicar ingles con un tutor de IA llamado Andres. El proyecto combina chat conversacional, reconocimiento de voz, sintesis de voz del navegador, ruta de aprendizaje por niveles, progreso local y una base preparada para persistencia con Supabase.
+Andres English Tutor is a browser-based English practice application for Spanish-speaking learners. It combines an AI speaking tutor, microphone input, browser text-to-speech, guided lessons, quizzes, local progress tracking and a Supabase Edge Function layer that protects the Gemini API key outside the public frontend bundle.
 
-## Resumen
+## Product Goal
 
-Andres English Tutor esta construido como una SPA con React y Vite. La experiencia principal permite alternar entre un chat de practica oral con Gemini y modulos guiados de aprendizaje con vocabulario, pronunciacion, audio, quizzes y progreso por leccion.
+The project is designed as an interactive learning tool, not as a static landing page. The user can practice short English speaking exercises with an AI tutor named Andres, listen to responses aloud, complete vocabulary modules and track learning progress from the browser.
 
-## Funcionalidades
+## Core Experience
 
-- Chat con IA usando Google Gemini.
-- Instruccion de sistema enfocada en practica de pronunciacion y speaking.
-- Reconocimiento de voz mediante Web Speech API.
-- Reproduccion de respuestas con SpeechSynthesis.
-- Diagnostico basico de microfono, voces y audio del navegador.
-- Ruta de aprendizaje por niveles y modulos.
-- Lecciones con traduccion, pronunciacion aproximada, IPA y audio.
-- Quizzes por modulo.
-- Progreso persistido en `localStorage`.
-- Cliente Supabase preparado para historial y perfil de usuario.
-- Migraciones SQL con tablas, RLS, seeds y funciones para evolucionar el backend.
-- Deploy automatico a GitHub Pages mediante GitHub Actions.
+### AI Speaking Tutor
 
-## Stack tecnico
+- Conversational tutor powered by Google Gemini through Supabase Edge Functions.
+- System instruction focused on short answers, pronunciation practice and repeat-after-me exercises.
+- Microphone input with the Web Speech API.
+- Audio playback with `SpeechSynthesisUtterance`.
+- Browser diagnostics panel for microphone, voices, speech synthesis and audio state.
+- AI usage bar that displays monthly token consumption and pauses chat when the monthly limit is reached.
+
+### Guided Learning Path
+
+- Level and module structure for beginner English practice.
+- Lesson cards with Spanish meaning, English phrase, pronunciation aid, IPA field and audio text.
+- Module quizzes with immediate feedback.
+- Local progress persistence with `localStorage`.
+- Supabase SQL foundation prepared for remote progress, quiz attempts, learning events and chat history.
+
+## Technical Architecture
+
+```text
+src/
+  components/
+    AIUsage/       Monthly AI usage indicator
+    Chat/          AI tutor, voice controls and diagnostics
+    Learning/      Levels, modules, lessons, quizzes and progress UI
+  data/            Static learning module definitions
+  hooks/           Learning progress and audio-related hooks
+  services/        Gemini/Supabase communication layer
+  styles/          Responsive design system
+  utils/           Anonymous client fingerprint for usage tracking
+supabase/
+  functions/
+    gemini-chat/        Secure Gemini proxy with token accounting
+    ai-usage-status/    Public usage summary for the UI
+  migrations/           SQL schema, RLS, seeds, functions and AI usage limits
+.github/
+  workflows/
+    deploy.yml          GitHub Pages deployment workflow
+```
+
+## Stack
 
 - React 18
 - Vite 5
 - JavaScript
-- Google Gemini API (`@google/genai`)
-- Supabase JS
+- Google Gemini API
+- Supabase Edge Functions
+- Supabase PostgreSQL
+- Row Level Security
 - Web Speech API
 - SpeechSynthesis API
 - Lucide React
+- ESLint
 - GitHub Actions
 - GitHub Pages
 
-## Requisitos
+## Supabase Layer
 
-- Node.js 20 o superior.
-- npm.
-- API key de Gemini.
-- Proyecto Supabase opcional si se desea persistencia remota.
+The repository includes SQL migrations for a production-oriented backend foundation:
 
-## Configuracion local
+- Levels, modules and lessons.
+- User profiles.
+- Lesson and module progress.
+- Quiz attempts.
+- Chat sessions and chat messages.
+- Learning events.
+- AI usage configuration.
+- Monthly token usage ledger.
+- Atomic usage increment function for Edge Functions.
+- Row Level Security policies.
+- Seed data for initial learning content.
 
-1. Instalar dependencias:
+The current public demo keeps lesson progress in `localStorage`, while the Supabase schema is ready for the next step: authenticated users, remote progress and persistent chat history.
 
-```bash
-npm install
-```
+## AI Usage Control
 
-2. Crear archivo `.env` desde el ejemplo:
+The frontend does not need to expose the Gemini API key in production mode. Chat requests go through `supabase/functions/gemini-chat`, where the Edge Function:
+
+- Validates message length.
+- Reads global AI usage configuration.
+- Checks the monthly token budget.
+- Calls Gemini server-side.
+- Records token usage through `andres_increment_usage`.
+- Returns updated usage numbers to the UI.
+
+`supabase/functions/ai-usage-status` returns the current monthly usage so the app can render the usage bar before the user sends a message.
+
+## Environment Variables
+
+Create `.env` from `.env.example`:
 
 ```bash
 cp .env.example .env
 ```
 
-3. Completar variables:
+Default production-style mode:
 
 ```env
 VITE_SUPABASE_URL=
 VITE_SUPABASE_ANON_KEY=
+VITE_USE_DIRECT_GEMINI=false
+```
+
+Direct Gemini mode is only for local development or controlled testing:
+
+```env
+VITE_USE_DIRECT_GEMINI=true
 VITE_GEMINI_API_KEY=
 ```
 
-4. Ejecutar en desarrollo:
+## Supabase Secrets
+
+The Edge Functions require server-side secrets configured in Supabase:
+
+```text
+GEMINI_API_KEY
+GEMINI_MODEL
+```
+
+`GEMINI_MODEL` is optional. If it is not configured, the function uses its internal fallback chain.
+
+## Local Development
 
 ```bash
+npm install
 npm run dev
 ```
 
-La aplicacion local queda disponible en:
+Local URL:
 
 ```text
 http://127.0.0.1:3050/
 ```
 
-## Validacion
+## Quality Checks
 
 ```bash
 npm run lint
@@ -83,57 +150,50 @@ npm run build
 npm run check
 ```
 
-## Deploy en GitHub Pages
+`npm run check` runs lint and the production build.
 
-El proyecto esta preparado para publicarse gratis en GitHub Pages con el repositorio:
+## GitHub Pages Deployment
+
+The project is prepared for a free GitHub Pages deployment.
+
+Repository:
 
 ```text
 https://github.com/Andresito202/andres-english-tutor
 ```
 
-La URL esperada del sitio publicado es:
+Expected public URL:
 
 ```text
 https://andresito202.github.io/andres-english-tutor/
 ```
 
-El workflow se encuentra en:
+Deployment workflow:
 
 ```text
 .github/workflows/deploy.yml
 ```
 
-Para que el deploy funcione, configurar estos secretos en GitHub:
+Required GitHub repository secrets:
 
 - `VITE_SUPABASE_URL`
 - `VITE_SUPABASE_ANON_KEY`
-- `VITE_GEMINI_API_KEY`
 
-## Nota de seguridad
+The Gemini key should be stored as a Supabase secret, not as a GitHub Pages frontend variable.
 
-Las variables con prefijo `VITE_` se exponen en el JavaScript del navegador durante el build. Esto es aceptable para demos controladas, pero para produccion real la llamada a Gemini deberia pasar por un backend o una Edge Function que proteja la clave privada.
+## Security Notes
 
-## Estructura principal
+- Variables prefixed with `VITE_` are bundled into public browser JavaScript.
+- Production chat requests should use the included Supabase Edge Function proxy.
+- The Gemini API key belongs in Supabase secrets, not in `.env` for a public build.
+- Token accounting is enforced server-side through the Edge Function and SQL RPC, not by trusting the browser.
+- User-generated chat text is rendered as React text nodes in the UI, avoiding direct HTML injection.
 
-```text
-src/
-  components/
-    Chat/
-    Learning/
-  data/
-  hooks/
-  services/
-  styles/
-supabase/
-  migrations/
-  legacy/
-.github/workflows/deploy.yml
-```
+## Engineering Highlights
 
-## Enfoque de ingenieria
-
-- Separacion entre UI, servicios, hooks y datos de aprendizaje.
-- Flujo de audio defensivo con manejo de errores de microfono y voz.
-- Fallback de modelos Gemini para mejorar disponibilidad.
-- Build optimizado con chunks separados para React, IA, Supabase e iconos.
-- Base SQL documentada para evolucionar de progreso local a persistencia remota.
+- Clear separation between UI components, services, hooks, data and Supabase infrastructure.
+- Defensive voice handling for browser microphone and speech synthesis behavior.
+- Server-side AI proxy with usage limits and token accounting.
+- GitHub Pages build configured with `base: /andres-english-tutor/`.
+- Automated deployment workflow with repository secrets.
+- Portfolio-ready README that explains scope, architecture, security boundaries and next steps without overstating unfinished backend features.

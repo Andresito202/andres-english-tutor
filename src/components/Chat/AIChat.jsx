@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from 'react';
+import { Fragment, useState, useEffect, useRef } from 'react';
 import * as Icons from 'lucide-react';
-import { sendMessageToAI } from '../../services/aiService';
+import { sendMessageToAI, getAIUsageStatus } from '../../services/aiService';
 import AIAvatar from './AIAvatar';
+import AIUsageBar from '../AIUsage/AIUsageBar';
 
 function loadVoices() {
   return new Promise((resolve) => {
@@ -13,35 +14,44 @@ function loadVoices() {
     }
 
     const timeout = setTimeout(() => {
-      window.speechSynthesis.removeEventListener("voiceschanged", handler);
+      window.speechSynthesis.removeEventListener('voiceschanged', handler);
       resolve(window.speechSynthesis.getVoices());
     }, 1500);
 
     const handler = () => {
       voices = window.speechSynthesis.getVoices();
       clearTimeout(timeout);
-      window.speechSynthesis.removeEventListener("voiceschanged", handler);
+      window.speechSynthesis.removeEventListener('voiceschanged', handler);
       resolve(voices);
     };
 
-    window.speechSynthesis.addEventListener("voiceschanged", handler);
+    window.speechSynthesis.addEventListener('voiceschanged', handler);
   });
+}
+
+function renderMessageText(text) {
+  return text.split('\n').map((line, index, lines) => (
+    <Fragment key={`${index}-${line.slice(0, 16)}`}>
+      {line}
+      {index < lines.length - 1 && <br />}
+    </Fragment>
+  ));
 }
 
 async function testBeep() {
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
 
   if (!AudioContextClass) {
-    throw new Error("AudioContext no soportado");
+    throw new Error('AudioContext no soportado');
   }
 
   const ctx = new AudioContextClass();
-  if (ctx.state === "suspended") await ctx.resume();
+  if (ctx.state === 'suspended') await ctx.resume();
 
   const oscillator = ctx.createOscillator();
   const gain = ctx.createGain();
 
-  oscillator.type = "sine";
+  oscillator.type = 'sine';
   oscillator.frequency.value = 440;
   gain.gain.value = 0.2;
 
@@ -57,7 +67,7 @@ async function testBeep() {
 
 const AIChat = () => {
   const [messages, setMessages] = useState([
-    { id: 1, sender: 'ai', text: "Hi there! I'm Andres, your English tutor. I'm ready to help you practice. How can I assist you today?" }
+    { id: 1, sender: 'ai', text: "Hi there! I'm Andres, your English tutor. I'm ready to help you practice. How can I assist you today?" },
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -65,7 +75,10 @@ const AIChat = () => {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [audioError, setAudioError] = useState('');
   const [isDiagOpen, setIsDiagOpen] = useState(false);
-  
+  const [aiUsage, setAiUsage] = useState(null);
+
+  const isAiUnavailable = aiUsage?.isLimitReached || aiUsage?.isAiEnabled === false;
+
   const [diag, setDiag] = useState({
     speechSynthesisSupported: 'speechSynthesis' in window,
     voicesCount: 0,
@@ -77,7 +90,7 @@ const AIChat = () => {
     currentUrl: window.location.href,
     userAgent: navigator.userAgent,
     lastMicError: 'None',
-    sysSpeaking: false
+    sysSpeaking: false,
   });
 
   const messagesEndRef = useRef(null);
@@ -86,8 +99,8 @@ const AIChat = () => {
 
   useEffect(() => {
     if ('speechSynthesis' in window) {
-      loadVoices().then(voices => {
-        setDiag(prev => ({ ...prev, voicesCount: voices.length }));
+      loadVoices().then((voices) => {
+        setDiag((prev) => ({ ...prev, voicesCount: voices.length }));
       });
     }
 
@@ -106,9 +119,9 @@ const AIChat = () => {
       };
 
       recognition.current.onerror = (event) => {
-        setDiag(prev => ({ ...prev, lastMicError: event.error }));
+        setDiag((prev) => ({ ...prev, lastMicError: event.error }));
         if (event.error !== 'no-speech') {
-          setAudioError("Microphone error: " + event.error);
+          setAudioError(`Microphone error: ${event.error}`);
         }
         setIsListening(false);
       };
@@ -119,10 +132,22 @@ const AIChat = () => {
     }
 
     return () => {
-      try { window.speechSynthesis.cancel(); } catch (e) { console.warn("Speech synthesis cleanup failed", e); }
+      try {
+        window.speechSynthesis.cancel();
+      } catch (error) {
+        console.warn('Speech synthesis cleanup failed', error);
+      }
     };
   // SpeechRecognition is registered once to avoid resetting browser audio state on every render.
   // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const fetchUsage = async () => {
+      const status = await getAIUsageStatus();
+      if (status) setAiUsage(status);
+    };
+    fetchUsage();
   }, []);
 
   const scrollToBottom = () => {
@@ -134,52 +159,52 @@ const AIChat = () => {
   }, [messages, isTyping]);
 
   async function speakText(text) {
-    if (!("speechSynthesis" in window)) throw new Error("speechSynthesis no está soportado en este navegador");
-    if (!text || !text.trim()) throw new Error("Texto vacío para reproducir");
+    if (!('speechSynthesis' in window)) throw new Error('speechSynthesis no soportado en este navegador');
+    if (!text || !text.trim()) throw new Error('Texto vacio para reproducir');
 
-    const cleanText = text.trim().replace(/[*_#`]/g, "");
+    const cleanText = text.trim().replace(/[*_#`]/g, '');
 
     if (recognition.current) {
       try {
         recognition.current.stop();
         setIsListening(false);
-      } catch (e) {
-        console.warn("Speech recognition stop failed", e);
+      } catch (error) {
+        console.warn('Speech recognition stop failed', error);
       }
     }
 
     if (window.speechSynthesis.speaking || window.speechSynthesis.pending) {
       window.speechSynthesis.cancel();
-      await new Promise(resolve => setTimeout(resolve, 250));
+      await new Promise((resolve) => setTimeout(resolve, 250));
     }
 
     const voices = await loadVoices();
 
     return new Promise((resolve, reject) => {
       const utterance = new SpeechSynthesisUtterance(cleanText);
-      utterance.lang = "en-US";
+      utterance.lang = 'en-US';
       utterance.volume = 1;
       utterance.rate = 0.95;
       utterance.pitch = 1;
 
       const englishVoice =
-        voices.find(v => v.default && v.lang.startsWith("en")) ||
-        voices.find(v => v.name.includes("Microsoft") && v.lang.startsWith("en")) ||
-        voices.find(v => v.lang === "en-US") ||
-        voices.find(v => v.lang && v.lang.startsWith("en")) ||
+        voices.find((voice) => voice.default && voice.lang.startsWith('en')) ||
+        voices.find((voice) => voice.name.includes('Microsoft') && voice.lang.startsWith('en')) ||
+        voices.find((voice) => voice.lang === 'en-US') ||
+        voices.find((voice) => voice.lang && voice.lang.startsWith('en')) ||
         voices[0];
 
       if (englishVoice) {
         utterance.voice = englishVoice;
       }
 
-      setDiag(prev => ({
+      setDiag((prev) => ({
         ...prev,
-        selectedVoiceName: englishVoice?.name || "Default",
-        selectedVoiceLang: englishVoice?.lang || "Default",
-        lastAudioEvent: "starting",
-        lastAudioError: "None",
-        sysSpeaking: window.speechSynthesis.speaking
+        selectedVoiceName: englishVoice?.name || 'Default',
+        selectedVoiceLang: englishVoice?.lang || 'Default',
+        lastAudioEvent: 'starting',
+        lastAudioError: 'None',
+        sysSpeaking: window.speechSynthesis.speaking,
       }));
 
       let watchdogTimer = null;
@@ -189,38 +214,38 @@ const AIChat = () => {
         if (watchdogTimer) clearTimeout(watchdogTimer);
         hasStarted = true;
         setIsSpeaking(true);
-        setDiag(prev => ({
+        setDiag((prev) => ({
           ...prev,
-          lastAudioEvent: "onstart",
-          lastAudioError: "None",
-          sysSpeaking: window.speechSynthesis.speaking
+          lastAudioEvent: 'onstart',
+          lastAudioError: 'None',
+          sysSpeaking: window.speechSynthesis.speaking,
         }));
       };
 
       utterance.onend = () => {
         if (watchdogTimer) clearTimeout(watchdogTimer);
         setIsSpeaking(false);
-        setDiag(prev => ({
+        setDiag((prev) => ({
           ...prev,
-          lastAudioEvent: "onend",
-          lastAudioError: "None",
-          sysSpeaking: window.speechSynthesis.speaking
+          lastAudioEvent: 'onend',
+          lastAudioError: 'None',
+          sysSpeaking: window.speechSynthesis.speaking,
         }));
         resolve();
       };
 
       utterance.onerror = (event) => {
         if (watchdogTimer) clearTimeout(watchdogTimer);
-        const errorName = event.error || "Unknown";
+        const errorName = event.error || 'Unknown';
         setIsSpeaking(false);
-        setDiag(prev => ({
+        setDiag((prev) => ({
           ...prev,
-          lastAudioEvent: "onerror",
+          lastAudioEvent: 'onerror',
           lastAudioError: errorName,
-          sysSpeaking: window.speechSynthesis.speaking
+          sysSpeaking: window.speechSynthesis.speaking,
         }));
 
-        if (errorName === "interrupted" || errorName === "canceled") {
+        if (errorName === 'interrupted' || errorName === 'canceled') {
           resolve();
           return;
         }
@@ -234,8 +259,13 @@ const AIChat = () => {
           if (!hasStarted) {
             window.speechSynthesis.cancel();
             setIsSpeaking(false);
-            setDiag(prev => ({ ...prev, lastAudioEvent: "watchdog-timeout", lastAudioError: "Engine Deadlocked", sysSpeaking: false }));
-            reject(new Error("El motor de voz del navegador está bloqueado."));
+            setDiag((prev) => ({
+              ...prev,
+              lastAudioEvent: 'watchdog-timeout',
+              lastAudioError: 'Engine Deadlocked',
+              sysSpeaking: false,
+            }));
+            reject(new Error('El motor de voz del navegador esta bloqueado.'));
           }
         }, 2000);
       } catch (error) {
@@ -249,79 +279,150 @@ const AIChat = () => {
   const handleTestAudio = async () => {
     if (audioLockRef.current) return;
     audioLockRef.current = true;
-    setAudioError("");
+    setAudioError('');
     setIsSpeaking(true);
-    try { await speakText("Audio test successful. I can hear you."); } catch (error) { setAudioError(error.message || "Audio failed"); } finally { setIsSpeaking(false); audioLockRef.current = false; }
+    try {
+      await speakText('Audio test successful. I can hear you.');
+    } catch (error) {
+      setAudioError(error.message || 'Audio failed');
+    } finally {
+      setIsSpeaking(false);
+      audioLockRef.current = false;
+    }
   };
 
   const handleTestBeep = async () => {
-    setAudioError("");
-    try { await testBeep(); } catch (error) { setAudioError(error.message || "Beep failed"); }
+    setAudioError('');
+    try {
+      await testBeep();
+    } catch (error) {
+      setAudioError(error.message || 'Beep failed');
+    }
   };
 
   const handleMessageAudio = async (text) => {
     if (audioLockRef.current) return;
     audioLockRef.current = true;
-    setAudioError("");
+    setAudioError('');
     setIsSpeaking(true);
-    try { await speakText(text); } catch (error) { setAudioError(error.message || "Audio failed"); } finally { setIsSpeaking(false); audioLockRef.current = false; }
+    try {
+      await speakText(text);
+    } catch (error) {
+      setAudioError(error.message || 'Audio failed');
+    } finally {
+      setIsSpeaking(false);
+      audioLockRef.current = false;
+    }
   };
 
   const handleSendVoice = async (text) => {
     if (!text.trim()) return;
+    if (isAiUnavailable) {
+      setAudioError(
+        aiUsage?.isAiEnabled === false
+          ? 'La practica con IA esta pausada temporalmente.'
+          : 'Limite mensual de IA alcanzado.'
+      );
+      return;
+    }
+
     if (recognition.current) {
       try {
         recognition.current.stop();
         setIsListening(false);
-      } catch (e) {
-        console.warn("Speech recognition stop failed", e);
+      } catch (error) {
+        console.warn('Speech recognition stop failed', error);
       }
     }
+
     const userMessage = { id: Date.now(), sender: 'user', text: text.trim() };
-    setMessages(prev => [...prev, userMessage]);
+    setMessages((prev) => [...prev, userMessage]);
     setInput('');
     setIsTyping(true);
+
     try {
-      const aiResponseText = await sendMessageToAI(userMessage.text, messages);
-      setMessages(prev => [...prev, { id: Date.now() + 1, sender: 'ai', text: aiResponseText }]);
-      handleMessageAudio(aiResponseText);
+      const response = await sendMessageToAI(userMessage.text, messages);
+      setMessages((prev) => [...prev, { id: Date.now() + 1, sender: 'ai', text: response.text }]);
+
+      if (response.usage) {
+        setAiUsage((prev) => ({
+          ...prev,
+          monthlyUsed: response.usage.monthlyUsed,
+          monthlyLimit: response.usage.monthlyLimit,
+          percentageUsed: response.usage.percentageUsed,
+          isAiEnabled: response.usage.isAiEnabled ?? prev?.isAiEnabled ?? true,
+          isLimitReached: response.usage.isLimitReached ?? response.usage.monthlyUsed >= response.usage.monthlyLimit,
+          resetDate: response.usage.resetDate ?? prev?.resetDate,
+        }));
+      }
+
+      handleMessageAudio(response.text);
     } catch (error) {
-      setMessages(prev => [...prev, { id: Date.now() + 1, sender: 'ai', text: error.message || "Error contactando a la IA." }]);
-    } finally { setIsTyping(false); }
+      if (error.status === 429) {
+        setMessages((prev) => [...prev, { id: Date.now() + 1, sender: 'ai', text: error.message }]);
+        if (error.usage) setAiUsage(error.usage);
+      } else {
+        setMessages((prev) => [
+          ...prev,
+          { id: Date.now() + 1, sender: 'ai', text: error.message || 'Error contactando a la IA.' },
+        ]);
+      }
+    } finally {
+      setIsTyping(false);
+    }
   };
 
-  const handleSend = async (e) => {
-    if (e) e.preventDefault();
+  const handleSend = async (event) => {
+    if (event) event.preventDefault();
     handleSendVoice(input);
   };
 
   const toggleListen = () => {
-    if (!recognition.current) { setAudioError("Microphone not supported."); return; }
-    if (isListening) { recognition.current.stop(); setIsListening(false); } else {
-      try { recognition.current.start(); setIsListening(true); } catch (err) {
-        recognition.current.stop();
-        setTimeout(() => { try { recognition.current.start(); setIsListening(true); } catch (e) { setAudioError("Could not access mic."); } }, 100);
-      }
+    if (!recognition.current) {
+      setAudioError('Microphone not supported.');
+      return;
+    }
+
+    if (isListening) {
+      recognition.current.stop();
+      setIsListening(false);
+      return;
+    }
+
+    try {
+      recognition.current.start();
+      setIsListening(true);
+    } catch {
+      recognition.current.stop();
+      setTimeout(() => {
+        try {
+          recognition.current.start();
+          setIsListening(true);
+        } catch {
+          setAudioError('Could not access mic.');
+        }
+      }, 100);
     }
   };
 
   return (
     <>
       {audioError && <div className="error-toast">{audioError}</div>}
-      
+
       <div className="chat-shell">
         <div className={`diag-panel ${isDiagOpen ? 'open' : 'closed'}`}>
           <div className="diag-header">
             <button type="button" className="diag-toggle" onClick={() => setIsDiagOpen(!isDiagOpen)}>
-              <Icons.Activity size={14} /> 
-              <span>Panel Diagnóstico</span>
-              <span className="diag-arrow">{isDiagOpen ? '▼' : '▶'}</span>
+              <Icons.Activity size={14} />
+              <span>Panel Diagnostico</span>
+              <span className="diag-arrow">{isDiagOpen ? 'v' : '>'}</span>
             </button>
             <div className="diag-actions">
               <button type="button" onClick={handleTestAudio} className="btn-diag-action audio">Probar Audio</button>
               <button type="button" onClick={handleTestBeep} className="btn-diag-action beep">Probar Beep</button>
             </div>
           </div>
+
           {isDiagOpen && (
             <div className="diag-grid">
               <div>voicesCount: {diag.voicesCount}</div>
@@ -339,6 +440,7 @@ const AIChat = () => {
         </div>
 
         <header className="chat-header">
+          <AIUsageBar usage={aiUsage} />
           <AIAvatar isSpeaking={isSpeaking} />
           <div className="brand-title">
             <Icons.ShieldCheck size={18} color="var(--accent-primary)" />
@@ -350,9 +452,9 @@ const AIChat = () => {
           {messages.map((msg) => (
             <div key={msg.id} className={`message-wrapper ${msg.sender === 'user' ? 'user' : 'ai'}`}>
               <div className="message-bubble">
-                <div dangerouslySetInnerHTML={{ __html: msg.text.replace(/\n/g, '<br/>') }} />
+                <div>{renderMessageText(msg.text)}</div>
                 {msg.sender === 'ai' && (
-                  <button 
+                  <button
                     onClick={() => handleMessageAudio(msg.text)}
                     disabled={isSpeaking}
                     className="btn-read-aloud"
@@ -364,7 +466,7 @@ const AIChat = () => {
               </div>
             </div>
           ))}
-          
+
           {isTyping && (
             <div className="message-wrapper ai">
               <div className="message-bubble typing">
@@ -379,30 +481,30 @@ const AIChat = () => {
 
         <div className="chat-input-area">
           <form onSubmit={handleSend} className="avant-input-wrapper">
-            <button 
+            <button
               type="button"
               onClick={toggleListen}
               className="btn-mic"
-              style={{ 
-                background: isListening ? 'var(--accent-soft)' : 'transparent', 
-                color: isListening ? 'var(--accent-primary)' : 'var(--text-muted)' 
+              style={{
+                background: isListening ? 'var(--accent-soft)' : 'transparent',
+                color: isListening ? 'var(--accent-primary)' : 'var(--text-muted)',
               }}
               title="Use Microphone"
               disabled={isTyping || isSpeaking}
             >
               {isListening ? <Icons.Mic size={22} className="listening" /> : <Icons.MicOff size={22} />}
             </button>
-            
-            <input 
-              type="text" 
+
+            <input
+              type="text"
               value={input}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Type your message..." 
+              onChange={(event) => setInput(event.target.value)}
+              placeholder="Type your message..."
               className="avant-input"
               disabled={isTyping || isSpeaking}
             />
-            
-            <button type="submit" className="btn-avant" disabled={!input.trim() || isTyping || isSpeaking}>
+
+            <button type="submit" className="btn-avant" disabled={!input.trim() || isTyping || isSpeaking || isAiUnavailable}>
               Send
               <Icons.Send size={18} />
             </button>

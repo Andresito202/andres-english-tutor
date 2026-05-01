@@ -1,7 +1,23 @@
 {
   "name": "andres-english-tutor",
   "private": true,
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "Browser-based English tutor with Gemini, Supabase Edge Functions, speech input, speech synthesis, guided lessons, quizzes and AI usage controls.",
+  "homepage": "https://andresito202.github.io/andres-english-tutor/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Andresito202/andres-english-tutor.git"
+  },
+  "keywords": [
+    "english-learning",
+    "ai-tutor",
+    "gemini",
+    "supabase-edge-functions",
+    "web-speech-api",
+    "react",
+    "vite",
+    "github-pages"
+  ],
   "type": "module",
   "scripts": {
     "dev": "vite",

@@ -1,15 +1,20 @@
 import { GoogleGenAI } from '@google/genai';
+import { getClientFingerprint } from '../utils/clientFingerprint';
 
 const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const useDirectGemini = import.meta.env.VITE_USE_DIRECT_GEMINI === 'true';
+const hasEdgeFunctionConfig = Boolean(supabaseUrl && supabaseAnonKey);
 
 let aiClient = null;
 
 try {
-  if (apiKey) {
-    aiClient = new GoogleGenAI({ apiKey: apiKey });
+  if (useDirectGemini && apiKey) {
+    aiClient = new GoogleGenAI({ apiKey });
   }
-} catch (e) {
-  console.error("[Gemini] Failed to initialize Gemini API:", e);
+} catch (error) {
+  console.error('[Gemini] Failed to initialize local Gemini API:', error);
 }
 
 const SYSTEM_INSTRUCTION = `
@@ -17,110 +22,135 @@ You are an expert, friendly English tutor named "Andres".
 Your primary goal right now is to help the user practice PRONUNCIATION and SPEAKING.
 
 Follow these strict rules:
-1. Always keep your responses VERY SHORT (1-3 sentences max) so the text-to-speech doesn't take too long.
-2. If the user just says hello, greet them and give them a short, useful English phrase to repeat. (e.g. "Hi! Let's practice. Please repeat after me: 'The weather is beautiful today.'")
+1. Always keep your responses VERY SHORT (1-3 sentences max) so the text-to-speech does not take too long.
+2. If the user just says hello, greet them and give them a short, useful English phrase to repeat.
 3. If you asked the user to repeat a phrase, and they respond, evaluate their response carefully.
-   - If it matches perfectly or very closely: Praise them enthusiastically ("Perfect pronunciation!"). Then give them a new, slightly harder phrase to repeat.
-   - If they made mistakes or the speech-to-text caught different words (which implies bad pronunciation): Gently tell them what they said wrong, and ask them to try the SAME phrase again.
-4. If the user says something completely random, respond naturally but then steer them back to a repetition exercise.
-5. ALWAYS be encouraging and friendly. Do not use complex markdown, just plain text, so the speech synthesis reads it naturally.
+   - If it matches perfectly or very closely: praise them and give them a new, slightly harder phrase.
+   - If they made mistakes or the speech-to-text caught different words: gently correct them and ask them to try the same phrase again.
+4. If the user says something unrelated, respond naturally and steer them back to a repetition exercise.
+5. Always use plain text so the speech synthesis reads it naturally.
 `;
 
-const MODEL_CHAIN = [
-  "gemini-2.5-flash",
-  "gemini-2.5-flash-lite",
-  "gemini-2.0-flash"
+const MODEL_CHAIN = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+
+const buildContents = (message, history) => [
+  {
+    role: 'user',
+    parts: [{ text: SYSTEM_INSTRUCTION }],
+  },
+  {
+    role: 'model',
+    parts: [{ text: 'Understood. I will act as the friendly English tutor Andres.' }],
+  },
+  ...history.map((item) => ({
+    role: item.sender === 'user' ? 'user' : 'model',
+    parts: [{ text: item.text }],
+  })),
+  {
+    role: 'user',
+    parts: [{ text: message }],
+  },
 ];
 
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+export const getAIUsageStatus = async () => {
+  if (!hasEdgeFunctionConfig) return null;
 
-function isRetryableGeminiError(error) {
-  const status = error?.status || error?.response?.status;
-  const message = error?.message || "";
+  try {
+    const response = await fetch(`${supabaseUrl}/functions/v1/ai-usage-status`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${supabaseAnonKey}`,
+        apikey: supabaseAnonKey,
+      },
+    });
 
-  return (
-    status === 503 ||
-    status === 429 ||
-    status >= 500 ||
-    message.toLowerCase().includes("unavailable") ||
-    message.toLowerCase().includes("high demand") ||
-    message.toLowerCase().includes("network") ||
-    message.toLowerCase().includes("fetch")
-  );
-}
+    if (!response.ok) return null;
+    return await response.json();
+  } catch (error) {
+    console.error('Failed to fetch AI usage:', error);
+    return null;
+  }
+};
 
-async function generateWithModel(modelName, contents) {
-  return aiClient.models.generateContent({
-    model: modelName,
-    contents
+const sendMessageToEdgeFunction = async (message, history) => {
+  if (!hasEdgeFunctionConfig) {
+    throw new Error('Supabase Edge Function configuration is missing.');
+  }
+
+  const fingerprint = getClientFingerprint();
+
+  const response = await fetch(`${supabaseUrl}/functions/v1/gemini-chat`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${supabaseAnonKey}`,
+      apikey: supabaseAnonKey,
+    },
+    body: JSON.stringify({
+      message,
+      clientFingerprint: fingerprint,
+      history: history.slice(-5),
+    }),
   });
-}
 
-export const sendMessageToAI = async (message, history) => {
-  if (!apiKey) {
-    throw new Error("Error: No se encontró la API Key en el archivo .env.");
-  }
+  const data = await response.json();
 
-  if (!aiClient) {
-    throw new Error("Error interno: El cliente de Gemini no se inicializó correctamente.");
-  }
-
-  let chatHistory = history.map(msg => ({
-    role: msg.sender === 'user' ? 'user' : 'model',
-    parts: [{ text: msg.text }]
-  }));
-
-  const contents = [
-    {
-      role: 'user',
-      parts: [{ text: SYSTEM_INSTRUCTION }]
-    },
-    {
-      role: 'model',
-      parts: [{ text: 'Understood. I will act as the friendly English tutor Andres.' }]
-    },
-    ...chatHistory,
-    {
-      role: 'user',
-      parts: [{ text: message }]
+  if (!response.ok) {
+    if (response.status === 429) {
+      throw {
+        status: 429,
+        message: data.message || 'Limite alcanzado.',
+        usage: data.usage,
+      };
     }
-  ];
 
-  for (const modelName of MODEL_CHAIN) {
-    const MAX_ATTEMPTS = 2;
-    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
-      try {
-        console.log("[Gemini] trying model:", modelName, "attempt:", attempt);
-        const response = await generateWithModel(modelName, contents);
-        console.log("[Gemini] success with model:", modelName);
-        return response.text;
-      } catch (error) {
-        const status = error?.status || error?.response?.status;
-        const errorMsg = error?.message || "Sin mensaje de error";
+    throw new Error(data.message || data.error || 'Error en la funcion de IA.');
+  }
 
-        if (status === 400) {
-          throw new Error(`Error 400: Payload o modelo inválido (${modelName}). Detalles: ${errorMsg}`);
-        } else if (status === 401 || status === 403) {
-          throw new Error("Error 401/403: API Key inválida o sin permisos.");
-        }
+  return {
+    text: data.responseText,
+    usage: data.usage,
+  };
+};
 
-        if (isRetryableGeminiError(error)) {
-          console.warn("[Gemini] retryable error:", status, errorMsg);
-          
-          if (attempt < MAX_ATTEMPTS) {
-            const delay = attempt === 1 ? 800 : 1600;
-            console.log(`[Gemini] waiting ${delay}ms before next attempt...`);
-            await sleep(delay);
-          } else {
-            console.warn("[Gemini] falling back to next model");
-          }
-        } else {
-          // Un error no reintentoable y que no es 400/401/403
-          throw new Error(`Error desconocido al contactar a la IA: ${errorMsg}`);
-        }
+const sendMessageDirectly = async (message, history) => {
+  if (!aiClient) {
+    throw new Error('Local Gemini client not initialized.');
+  }
+
+  const contents = buildContents(message, history);
+  let lastError = null;
+
+  for (const model of MODEL_CHAIN) {
+    try {
+      const response = await aiClient.models.generateContent({
+        model,
+        contents,
+        config: {
+          maxOutputTokens: 200,
+          temperature: 0.7,
+        },
+      });
+
+      return { text: response.text || 'No response from AI.' };
+    } catch (error) {
+      lastError = error;
+      const status = error?.status || error?.response?.status;
+
+      if (status === 401 || status === 403) {
+        throw new Error('Gemini API key is invalid or does not have permission.');
       }
     }
   }
 
-  throw new Error("Gemini está temporalmente saturado. Intenta de nuevo en unos minutos.");
+  throw new Error(lastError?.message || 'Gemini is temporarily unavailable.');
+};
+
+export const sendMessageToAI = async (message, history) => {
+  if (useDirectGemini) {
+    return await sendMessageDirectly(message, history);
+  }
+
+  return await sendMessageToEdgeFunction(message, history);
 };
