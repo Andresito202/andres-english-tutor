@@ -1,0 +1,2 @@
+-- 004_learna_functions.sql (Legacy)
+-- Refer to andres_ versions for current functions.
