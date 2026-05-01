@@ -1,199 +1,108 @@
-# Andres English Tutor
+# 🎙️ Andres English Tutor
+### *Your AI-Powered Personal Language Coach*
 
-Andres English Tutor is a browser-based English practice application for Spanish-speaking learners. It combines an AI speaking tutor, microphone input, browser text-to-speech, guided lessons, quizzes, local progress tracking and a Supabase Edge Function layer that protects the Gemini API key outside the public frontend bundle.
+[![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)](https://reactjs.org/)
+[![Vite](https://img.shields.io/badge/vite-%23646CFF.svg?style=for-the-badge&logo=vite&logoColor=white)](https://vitejs.dev/)
+[![Supabase](https://img.shields.io/badge/Supabase-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
+[![Google Gemini](https://img.shields.io/badge/Google%20Gemini-4285F4?style=for-the-badge&logo=google&logoColor=white)](https://deepmind.google/technologies/gemini/)
 
-## Product Goal
+**Andres English Tutor** is a high-end, browser-based language learning platform designed for Spanish-speaking learners. It bridges the gap between passive learning and active conversation by providing an interactive AI tutor capable of real-time speech interaction, pronunciation feedback, and guided practice.
 
-The project is designed as an interactive learning tool, not as a static landing page. The user can practice short English speaking exercises with an AI tutor named Andres, listen to responses aloud, complete vocabulary modules and track learning progress from the browser.
+---
 
-## Core Experience
+## ✨ Key Features
 
-### AI Speaking Tutor
+### 🤖 Intelligent AI Tutor (Andres)
+Engage in natural conversations with **Andres**, an AI persona optimized for language coaching. Powered by **Google Gemini**, Andres provides short, clear, and encouraging feedback tailored to your learning level.
 
-- Conversational tutor powered by Google Gemini through Supabase Edge Functions.
-- System instruction focused on short answers, pronunciation practice and repeat-after-me exercises.
-- Microphone input with the Web Speech API.
-- Audio playback with `SpeechSynthesisUtterance`.
-- Browser diagnostics panel for microphone, voices, speech synthesis and audio state.
-- AI usage bar that displays monthly token consumption and pauses chat when the monthly limit is reached.
+### 🗣️ Voice-First Interaction
+- **Real-time Speech Recognition**: Practice speaking naturally using the Web Speech API.
+- **Natural Voice Synthesis**: Listen to perfect English pronunciation with `SpeechSynthesisUtterance`.
+- **Integrated Audio Controls**: Play back any AI response to master every nuance.
 
-### Guided Learning Path
+### 🎯 Practice Modes
+Tailor your session to your current needs:
+- **Pronunciation**: Focus on accuracy and clarity.
+- **Daily Conversation**: Natural, casual dialogue.
+- **Vocabulary Builder**: Learn new words through context.
+- **Interview Prep**: Simulate basic job interviews.
+- **Repeat After Me**: Traditional drilling to build muscle memory.
 
-- Level and module structure for beginner English practice.
-- Lesson cards with Spanish meaning, English phrase, pronunciation aid, IPA field and audio text.
-- Module quizzes with immediate feedback.
-- Local progress persistence with `localStorage`.
-- Supabase SQL foundation prepared for remote progress, quiz attempts, learning events and chat history.
+### 💎 Premium Design System
+- **Glassmorphism UI**: A modern, clean, and editorial-style interface.
+- **Responsive Layout**: Optimized for Desktop (1920px), Tablets (768px), and Mobile (360px+).
+- **IA Usage Monitoring**: Real-time token tracking to manage API consumption effectively.
 
-## Technical Architecture
+---
+
+## 🛠️ Technical Architecture
+
+The project follows a modular and secure architecture designed for scalability:
 
 ```text
 src/
-  components/
-    AIUsage/       Monthly AI usage indicator
-    Chat/          AI tutor, voice controls and diagnostics
-    Learning/      Levels, modules, lessons, quizzes and progress UI
-  data/            Static learning module definitions
-  hooks/           Learning progress and audio-related hooks
-  services/        Gemini/Supabase communication layer
-  styles/          Responsive design system
-  utils/           Anonymous client fingerprint for usage tracking
+  ├── components/    # Reusable UI (Chat, AIUsage, Learning Path)
+  ├── services/      # Gemini & Supabase secure communication
+  ├── styles/        # Premium CSS Grid & Flexbox design system
+  ├── data/          # Static module & lesson definitions
+  └── utils/         # Performance & fingerprinting utilities
+
 supabase/
-  functions/
-    gemini-chat/        Secure Gemini proxy with token accounting
-    ai-usage-status/    Public usage summary for the UI
-  migrations/           SQL schema, RLS, seeds, functions and AI usage limits
-.github/
-  workflows/
-    deploy.yml          GitHub Pages deployment workflow
+  └── functions/     # Edge Functions for secure API orchestration
 ```
 
-## Stack
+### 🔒 Security & Orchestration
+- **Edge Function Proxy**: The Gemini API key is never exposed to the frontend. All AI traffic is proxied through Supabase Edge Functions.
+- **Server-Side Accounting**: Token usage is calculated and recorded server-side to prevent unauthorized API consumption.
+- **Fingerprint-Based Limits**: Fair usage is enforced via client fingerprinting and anonymous ledger entries.
 
-- React 18
-- Vite 5
-- JavaScript
-- Google Gemini API
-- Supabase Edge Functions
-- Supabase PostgreSQL
-- Row Level Security
-- Web Speech API
-- SpeechSynthesis API
-- Lucide React
-- ESLint
-- GitHub Actions
-- GitHub Pages
+---
 
-## Supabase Layer
+## 🚀 Getting Started
 
-The repository includes SQL migrations for a production-oriented backend foundation:
+### 1. Prerequisites
+- Node.js (v18+)
+- A Supabase Project
+- Google Gemini API Key
 
-- Levels, modules and lessons.
-- User profiles.
-- Lesson and module progress.
-- Quiz attempts.
-- Chat sessions and chat messages.
-- Learning events.
-- AI usage configuration.
-- Monthly token usage ledger.
-- Atomic usage increment function for Edge Functions.
-- Row Level Security policies.
-- Seed data for initial learning content.
-
-The current public demo keeps lesson progress in `localStorage`, while the Supabase schema is ready for the next step: authenticated users, remote progress and persistent chat history.
-
-## AI Usage Control
-
-The frontend does not need to expose the Gemini API key in production mode. Chat requests go through `supabase/functions/gemini-chat`, where the Edge Function:
-
-- Validates message length.
-- Reads global AI usage configuration.
-- Checks the monthly token budget.
-- Calls Gemini server-side.
-- Records token usage through `andres_increment_usage`.
-- Returns updated usage numbers to the UI.
-
-`supabase/functions/ai-usage-status` returns the current monthly usage so the app can render the usage bar before the user sends a message.
-
-## Environment Variables
-
-Create `.env` from `.env.example`:
-
+### 2. Installation
 ```bash
-cp .env.example .env
+git clone https://github.com/Andresito202/andres-english-tutor.git
+cd andres-english-tutor
+npm install
 ```
 
-Default production-style mode:
-
+### 3. Environment Setup
+Create a `.env` file based on `.env.example`:
 ```env
-VITE_SUPABASE_URL=
-VITE_SUPABASE_ANON_KEY=
+VITE_SUPABASE_URL=your_project_url
+VITE_SUPABASE_ANON_KEY=your_anon_key
 VITE_USE_DIRECT_GEMINI=false
 ```
 
-Direct Gemini mode is only for local development or controlled testing:
-
-```env
-VITE_USE_DIRECT_GEMINI=true
-VITE_GEMINI_API_KEY=
-```
-
-## Supabase Secrets
-
-The Edge Functions require server-side secrets configured in Supabase:
-
-```text
-GEMINI_API_KEY
-GEMINI_MODEL
-```
-
-`GEMINI_MODEL` is optional. If it is not configured, the function uses its internal fallback chain.
-
-## Local Development
-
+### 4. Run Development Server
 ```bash
-npm install
 npm run dev
 ```
+*Access locally at `http://localhost:5173` or on your mobile device using the Network URL.*
 
-Local URL:
+---
 
-```text
-http://127.0.0.1:3050/
-```
+## 🏗️ Engineering Highlights
 
-## Quality Checks
+- **Structural Layout Strategy**: Uses a hybrid Flexbox/Grid system for absolute vertical stability.
+- **Mobile-First Responsiveness**: Implements `100dvh` and dynamic grid columns for seamless mobile experience.
+- **Diagnostic Panel**: Built-in voice and audio diagnostics for debugging browser APIs.
+- **CI/CD**: Automated deployment to GitHub Pages via GitHub Actions.
 
-```bash
-npm run lint
-npm run build
-npm run check
-```
+---
 
-`npm run check` runs lint and the production build.
+## 📈 Roadmap
+- [ ] User authentication with Supabase Auth.
+- [ ] Remote progress persistence for all lessons.
+- [ ] Persistent chat history and session analysis.
+- [ ] Gamified learning streaks and achievements.
 
-## GitHub Pages Deployment
+---
 
-The project is prepared for a free GitHub Pages deployment.
-
-Repository:
-
-```text
-https://github.com/Andresito202/andres-english-tutor
-```
-
-Expected public URL:
-
-```text
-https://andresito202.github.io/andres-english-tutor/
-```
-
-Deployment workflow:
-
-```text
-.github/workflows/deploy.yml
-```
-
-Required GitHub repository secrets:
-
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
-
-The Gemini key should be stored as a Supabase secret, not as a GitHub Pages frontend variable.
-
-## Security Notes
-
-- Variables prefixed with `VITE_` are bundled into public browser JavaScript.
-- Production chat requests should use the included Supabase Edge Function proxy.
-- The Gemini API key belongs in Supabase secrets, not in `.env` for a public build.
-- Token accounting is enforced server-side through the Edge Function and SQL RPC, not by trusting the browser.
-- User-generated chat text is rendered as React text nodes in the UI, avoiding direct HTML injection.
-
-## Engineering Highlights
-
-- Clear separation between UI components, services, hooks, data and Supabase infrastructure.
-- Defensive voice handling for browser microphone and speech synthesis behavior.
-- Server-side AI proxy with usage limits and token accounting.
-- GitHub Pages build configured with `base: /andres-english-tutor/`.
-- Automated deployment workflow with repository secrets.
-- Portfolio-ready README that explains scope, architecture, security boundaries and next steps without overstating unfinished backend features.
+Developed with ❤️ by **Andres** | [Visit Portfolio](https://andresito202.github.io/andres-english-tutor/)
