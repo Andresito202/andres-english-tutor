@@ -274,7 +274,7 @@ export const learningModules = [
   {
     levelId: "intermediate",
     levelTitle: "Nivel Intermedio",
-    description: "Conversaciones, trabajo y viajes.",
+    description: "Conversaciones, trabajo y viajes. (v2.0)",
     modules: [
       {
         moduleId: "social_conversations",
@@ -409,7 +409,7 @@ export const learningModules = [
   {
     levelId: "advanced",
     levelTitle: "Nivel Avanzado",
-    description: "Expresiones, argumentación y fluidez.",
+    description: "Expresiones, argumentación y fluidez. (v2.0)",
     modules: [
       {
         moduleId: "job_interviews",

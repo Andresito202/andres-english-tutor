@@ -1440,3 +1440,121 @@ body {
   align-items: center;
   gap: 1.5rem;
 }
+
+/* =========================================
+   QUIZ STYLES (NEW)
+   ========================================= */
+
+.quiz-card {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2.5rem;
+  border-radius: 30px;
+  text-align: center;
+}
+
+.quiz-header {
+  margin-bottom: 2.5rem;
+}
+
+.quiz-badge {
+  display: inline-block;
+  padding: 0.4rem 1rem;
+  background: var(--accent-soft);
+  color: var(--accent-primary);
+  border-radius: 12px;
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  margin-bottom: 1rem;
+}
+
+.quiz-target-word {
+  font-size: 3.5rem;
+  font-weight: 800;
+  color: var(--accent-primary);
+  margin-top: 1rem;
+  text-shadow: 0 4px 10px rgba(37, 99, 235, 0.1);
+}
+
+.quiz-options {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.quiz-option-btn {
+  background: white;
+  border: 2px solid var(--border-light);
+  border-radius: 20px;
+  padding: 1.25rem 2rem;
+  font-family: var(--font-friendly);
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-dark);
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.quiz-option-btn:hover:not(:disabled) {
+  border-color: var(--accent-tertiary);
+  background: var(--bg-secondary);
+  transform: translateY(-2px);
+}
+
+.quiz-option-btn.correct {
+  background: #f0fdf4;
+  border-color: var(--success);
+  color: var(--success);
+}
+
+.quiz-option-btn.incorrect {
+  background: #fef2f2;
+  border-color: var(--error);
+  color: var(--error);
+}
+
+.quiz-feedback {
+  margin-top: 2rem;
+  padding: 2rem;
+  border-radius: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.feedback-success {
+  color: var(--success);
+  font-size: 1.25rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.feedback-error {
+  color: var(--error);
+  font-size: 1.25rem;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.success-bg {
+  background: #f0fdf4;
+  border: 1px solid #bcf0da;
+}
+
+.error-bg {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+}
+
+.mt-4 { margin-top: 1rem; }
