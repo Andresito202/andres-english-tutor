@@ -12,10 +12,10 @@ function AIConfigurationNotice({ missingConfigMessage }) {
           <Icons.LockKeyhole size={30} />
         </div>
         <h1 style={{ fontSize: 'clamp(2rem, 5vw, 3.25rem)', fontWeight: 800, marginBottom: '1rem', letterSpacing: '-1px' }}>
-          Chat IA no configurado
+          Asistente de conversación no disponible
         </h1>
         <p style={{ color: 'var(--text-dim)', fontSize: '1.05rem', lineHeight: 1.7, marginBottom: '1.5rem' }}>
-          La ruta de aprendizaje, lecciones y quizzes funcionan en modo público. El chat con Gemini queda desactivado hasta conectar las Edge Functions.
+          Las rutas profesionales, prácticas de pronunciación y evaluaciones siguen operativas. El asistente se habilita al conectar el servicio seguro de IA.
         </p>
         <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', lineHeight: 1.6 }}>
           {missingConfigMessage}
@@ -42,8 +42,11 @@ function App() {
       {/* Tab Switcher Navigation */}
       <nav className="global-nav avant-glass">
         <div className="nav-brand">
-          <Icons.ShieldCheck className="brand-icon" />
-          <span>Andres</span>
+          <span className="brand-monogram">AE</span>
+          <span className="brand-copy">
+            <strong>Andres English</strong>
+            <small>Business communication workspace</small>
+          </span>
         </div>
         <div className="nav-tabs">
           <button 
@@ -51,14 +54,14 @@ function App() {
             onClick={() => setActiveView('chat')}
           >
             <Icons.MessageSquare size={18} />
-            Chat con IA
+            Asistente de práctica
           </button>
           <button 
             className={`nav-tab ${activeView === 'learning' ? 'active' : ''}`}
             onClick={() => setActiveView('learning')}
           >
             <Icons.Library size={18} />
-            Modulos
+            Rutas profesionales
           </button>
         </div>
       </nav>

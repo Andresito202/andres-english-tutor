@@ -3,6 +3,11 @@ import ModuleCard from './ModuleCard';
 import * as Icons from 'lucide-react';
 
 export default function LevelList({ progress, onSelectModule }) {
+  const businessPriority = ['advanced', 'intermediate', 'basic', 'beginner'];
+  const orderedLevels = [...learningModules].sort(
+    (a, b) => businessPriority.indexOf(a.levelId) - businessPriority.indexOf(b.levelId)
+  );
+
   const getLevelIcon = (id) => {
     switch(id) {
       case 'beginner': return <Icons.Zap size={20} />;
@@ -15,7 +20,7 @@ export default function LevelList({ progress, onSelectModule }) {
 
   return (
     <div className="levels-container">
-      {learningModules.map((level) => (
+      {orderedLevels.map((level) => (
         <div key={level.levelId} className="level-section">
           <div className="level-header">
             <div className="level-title-group">

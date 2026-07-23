@@ -1,8 +1,8 @@
 export const learningModules = [
   {
     levelId: "beginner",
-    levelTitle: "Nivel Principiante",
-    description: "Aprende lo fundamental para empezar a hablar.",
+    levelTitle: "Workplace Foundation",
+    description: "Base operativa para presentarte, comprender datos y responder con claridad.",
     modules: [
       {
         moduleId: "greetings",
@@ -138,8 +138,8 @@ export const learningModules = [
   },
   {
     levelId: "basic",
-    levelTitle: "Nivel Básico",
-    description: "Verbos, rutina diaria y oraciones simples.",
+    levelTitle: "Daily Operations",
+    description: "Comunicación práctica para agenda, rutinas, ubicaciones y atención cotidiana.",
     modules: [
       {
         moduleId: "basic_verbs",
@@ -273,8 +273,8 @@ export const learningModules = [
   },
   {
     levelId: "intermediate",
-    levelTitle: "Nivel Intermedio",
-    description: "Conversaciones, trabajo y viajes. (v2.0)",
+    levelTitle: "Professional Collaboration",
+    description: "Conversaciones, trabajo, servicio y coordinación con equipos.",
     modules: [
       {
         moduleId: "social_conversations",
@@ -408,8 +408,8 @@ export const learningModules = [
   },
   {
     levelId: "advanced",
-    levelTitle: "Nivel Avanzado",
-    description: "Expresiones, argumentación y fluidez. (v2.0)",
+    levelTitle: "Leadership Communication",
+    description: "Entrevistas, reuniones, presentaciones, negociación y toma de decisiones.",
     modules: [
       {
         moduleId: "job_interviews",
